@@ -1,169 +1,288 @@
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local PathfindingService = game:GetService("PathfindingService")
+local UIS = game:GetService("UserInputService")
+
 local player = Players.LocalPlayer
 
 local savedPosition = nil
-local normalWalkSpeed = 16
-local autoWalkSpeed = 30
+local tweenEnabled = true
+local moving = false
 
--- Create UI
+-- Remove old UI
+local oldGui = player:WaitForChild("PlayerGui"):FindFirstChild("MovementUI")
+if oldGui then
+	oldGui:Destroy()
+end
+
+-- GUI
 local gui = Instance.new("ScreenGui")
-gui.Name = "WalkUI"
-gui.Parent = player:WaitForChild("PlayerGui")
+gui.Name = "MovementUI"
+gui.ResetOnSpawn = false
+gui.Parent = player.PlayerGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 130)
-frame.Position = UDim2.new(0.5, -110, 0.5, -65)
-frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.Size = UDim2.new(0, 280, 0, 320)
+frame.Position = UDim2.new(0.5, -140, 0.5, -160)
+frame.BackgroundColor3 = Color3.fromRGB(35,35,35)
 frame.Active = true
 frame.Draggable = true
 frame.Parent = gui
 
+Instance.new("UICorner", frame)
+
+-- Title
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
+title.Size = UDim2.new(1,0,0,30)
 title.BackgroundTransparency = 1
-title.Text = "Walk To Position"
-title.TextColor3 = Color3.new(1,1,1)
+title.Text = "Movement System"
 title.TextScaled = true
+title.TextColor3 = Color3.new(1,1,1)
 title.Parent = frame
 
-local setButton = Instance.new("TextButton")
-setButton.Size = UDim2.new(0.8, 0, 0, 35)
-setButton.Position = UDim2.new(0.1, 0, 0.35, 0)
-setButton.Text = "Set Position"
-setButton.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
-setButton.TextColor3 = Color3.new(1,1,1)
-setButton.Parent = frame
+---------------------------------------------------
+-- SPEED SLIDER
+---------------------------------------------------
 
-local walkButton = Instance.new("TextButton")
-walkButton.Size = UDim2.new(0.8, 0, 0, 35)
-walkButton.Position = UDim2.new(0.1, 0, 0.68, 0)
-walkButton.Text = "Walk To Position"
-walkButton.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
-walkButton.TextColor3 = Color3.new(1,1,1)
-walkButton.Parent = frame
+local currentSpeed = 60
+local minSpeed = 10
+local maxSpeed = 200
 
--- Save position
-setButton.MouseButton1Click:Connect(function()
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0.8,0,0,25)
+speedLabel.Position = UDim2.new(0.1,0,0.15,0)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "Tween Speed: "..currentSpeed
+speedLabel.TextScaled = true
+speedLabel.TextColor3 = Color3.new(1,1,1)
+speedLabel.Parent = frame
+
+local sliderBack = Instance.new("Frame")
+sliderBack.Size = UDim2.new(0.8,0,0,12)
+sliderBack.Position = UDim2.new(0.1,0,0.25,0)
+sliderBack.BackgroundColor3 = Color3.fromRGB(60,60,60)
+sliderBack.Parent = frame
+
+Instance.new("UICorner", sliderBack)
+
+local sliderFill = Instance.new("Frame")
+sliderFill.Size = UDim2.new(0.25,0,1,0)
+sliderFill.BackgroundColor3 = Color3.fromRGB(70,170,255)
+sliderFill.Parent = sliderBack
+
+Instance.new("UICorner", sliderFill)
+
+local sliderButton = Instance.new("TextButton")
+sliderButton.Size = UDim2.new(0,18,0,18)
+sliderButton.Position = UDim2.new(0.25,-9,0.5,-9)
+sliderButton.Text = ""
+sliderButton.BackgroundColor3 = Color3.new(1,1,1)
+sliderButton.Parent = sliderBack
+
+Instance.new("UICorner", sliderButton)
+
+local dragging = false
+
+local function updateSlider(input)
+	local sizeX = math.clamp(
+		(input.Position.X - sliderBack.AbsolutePosition.X)
+		/ sliderBack.AbsoluteSize.X,
+		0,
+		1
+	)
+
+	sliderFill.Size = UDim2.new(sizeX,0,1,0)
+	sliderButton.Position = UDim2.new(sizeX,-9,0.5,-9)
+
+	currentSpeed = math.floor(minSpeed + ((maxSpeed - minSpeed) * sizeX))
+
+	speedLabel.Text = "Tween Speed: "..currentSpeed
+end
+
+sliderButton.MouseButton1Down:Connect(function()
+	dragging = true
+end)
+
+UIS.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		updateSlider(input)
+	end
+end)
+
+---------------------------------------------------
+-- FLY HEIGHT BOX
+---------------------------------------------------
+
+local heightBox = Instance.new("TextBox")
+heightBox.Size = UDim2.new(0.8,0,0,30)
+heightBox.Position = UDim2.new(0.1,0,0.35,0)
+heightBox.PlaceholderText = "Fly Height"
+heightBox.Text = "25"
+heightBox.TextScaled = true
+heightBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+heightBox.TextColor3 = Color3.new(1,1,1)
+heightBox.Parent = frame
+
+Instance.new("UICorner", heightBox)
+
+---------------------------------------------------
+-- TOGGLE TWEEN
+---------------------------------------------------
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0.8,0,0,35)
+toggleButton.Position = UDim2.new(0.1,0,0.5,0)
+toggleButton.Text = "Tween: ON"
+toggleButton.TextScaled = true
+toggleButton.BackgroundColor3 = Color3.fromRGB(70,170,255)
+toggleButton.TextColor3 = Color3.new(1,1,1)
+toggleButton.Parent = frame
+
+Instance.new("UICorner", toggleButton)
+
+toggleButton.MouseButton1Click:Connect(function()
+	tweenEnabled = not tweenEnabled
+
+	if tweenEnabled then
+		toggleButton.Text = "Tween: ON"
+	else
+		toggleButton.Text = "Tween: OFF"
+	end
+end)
+
+---------------------------------------------------
+-- SAVE POSITION BUTTON
+---------------------------------------------------
+
+local saveButton = Instance.new("TextButton")
+saveButton.Size = UDim2.new(0.8,0,0,35)
+saveButton.Position = UDim2.new(0.1,0,0.67,0)
+saveButton.Text = "Set Position"
+saveButton.TextScaled = true
+saveButton.BackgroundColor3 = Color3.fromRGB(70,120,255)
+saveButton.TextColor3 = Color3.new(1,1,1)
+saveButton.Parent = frame
+
+Instance.new("UICorner", saveButton)
+
+saveButton.MouseButton1Click:Connect(function()
 	local character = player.Character or player.CharacterAdded:Wait()
 	local hrp = character:WaitForChild("HumanoidRootPart")
 
 	savedPosition = hrp.Position
-	print("Saved position:", savedPosition)
+
+	saveButton.Text = "Saved!"
+	task.wait(1)
+	saveButton.Text = "Set Position"
 end)
 
--- Walk to saved position
-walkButton.MouseButton1Click:Connect(function()
-	if not savedPosition then
-		warn("No position saved!")
-		return
-	end
+---------------------------------------------------
+-- MOVE BUTTON
+---------------------------------------------------
+
+local moveButton = Instance.new("TextButton")
+moveButton.Size = UDim2.new(0.8,0,0,35)
+moveButton.Position = UDim2.new(0.1,0,0.83,0)
+moveButton.Text = "Move To Position"
+moveButton.TextScaled = true
+moveButton.BackgroundColor3 = Color3.fromRGB(70,200,120)
+moveButton.TextColor3 = Color3.new(1,1,1)
+moveButton.Parent = frame
+
+Instance.new("UICorner", moveButton)
+
+---------------------------------------------------
+-- MOVE SYSTEM
+---------------------------------------------------
+
+moveButton.MouseButton1Click:Connect(function()
+	if moving then return end
+	if not savedPosition then return end
+
+	moving = true
 
 	local character = player.Character or player.CharacterAdded:Wait()
 	local humanoid = character:WaitForChild("Humanoid")
 	local hrp = character:WaitForChild("HumanoidRootPart")
 
-	-- Set speed to 30
-	humanoid.WalkSpeed = autoWalkSpeed
+	local speed = currentSpeed
+	local flyHeight = tonumber(heightBox.Text) or 25
 
-	-- Walk to saved position
-	humanoid:MoveTo(savedPosition)
+	if tweenEnabled then
 
-	-- Detect when destination reached
-	local connection
-	connection = humanoid.MoveToFinished:Connect(function(reached)
-		if reached then
-			print("Arrived at destination!")
-		else
-			warn("Could not reach destination.")
+		local elevatedPosition = Vector3.new(
+			savedPosition.X,
+			savedPosition.Y + flyHeight,
+			savedPosition.Z
+		)
+
+		local distance = (hrp.Position - elevatedPosition).Magnitude
+		local tweenTime = distance / speed
+
+		local tween = TweenService:Create(
+			hrp,
+			TweenInfo.new(tweenTime, Enum.EasingStyle.Linear),
+			{
+				CFrame = CFrame.new(elevatedPosition)
+			}
+		)
+
+		tween:Play()
+		tween.Completed:Wait()
+
+		local finalDistance = (hrp.Position - savedPosition).Magnitude
+		local finalTweenTime = finalDistance / speed
+
+		local finalTween = TweenService:Create(
+			hrp,
+			TweenInfo.new(finalTweenTime, Enum.EasingStyle.Linear),
+			{
+				CFrame = CFrame.new(savedPosition)
+			}
+		)
+
+		finalTween:Play()
+		finalTween.Completed:Wait()
+
+	else
+
+		humanoid.WalkSpeed = speed
+
+		local path = PathfindingService:CreatePath({
+			AgentRadius = 2,
+			AgentHeight = 5,
+			AgentCanJump = true,
+			AgentJumpHeight = 7,
+			AgentMaxSlope = 45
+		})
+
+		path:ComputeAsync(hrp.Position, savedPosition)
+
+		if path.Status == Enum.PathStatus.Success then
+			for _, waypoint in ipairs(path:GetWaypoints()) do
+
+				if waypoint.Action == Enum.PathWaypointAction.Jump then
+					humanoid.Jump = true
+				end
+
+				humanoid:MoveTo(waypoint.Position)
+
+				local reached = humanoid.MoveToFinished:Wait()
+
+				if not reached then
+					break
+				end
+			end
 		end
 
-		-- Reset speed
-		humanoid.WalkSpeed = normalWalkSpeed
-
-		connection:Disconnect()
-	end)
-end)local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-local savedPosition = nil
-local normalWalkSpeed = 16
-local autoWalkSpeed = 30
-
--- Create UI
-local gui = Instance.new("ScreenGui")
-gui.Name = "WalkUI"
-gui.Parent = player:WaitForChild("PlayerGui")
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 130)
-frame.Position = UDim2.new(0.5, -110, 0.5, -65)
-frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-frame.Active = true
-frame.Draggable = true
-frame.Parent = gui
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.BackgroundTransparency = 1
-title.Text = "Walk To Position"
-title.TextColor3 = Color3.new(1,1,1)
-title.TextScaled = true
-title.Parent = frame
-
-local setButton = Instance.new("TextButton")
-setButton.Size = UDim2.new(0.8, 0, 0, 35)
-setButton.Position = UDim2.new(0.1, 0, 0.35, 0)
-setButton.Text = "Set Position"
-setButton.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
-setButton.TextColor3 = Color3.new(1,1,1)
-setButton.Parent = frame
-
-local walkButton = Instance.new("TextButton")
-walkButton.Size = UDim2.new(0.8, 0, 0, 35)
-walkButton.Position = UDim2.new(0.1, 0, 0.68, 0)
-walkButton.Text = "Walk To Position"
-walkButton.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
-walkButton.TextColor3 = Color3.new(1,1,1)
-walkButton.Parent = frame
-
--- Save position
-setButton.MouseButton1Click:Connect(function()
-	local character = player.Character or player.CharacterAdded:Wait()
-	local hrp = character:WaitForChild("HumanoidRootPart")
-
-	savedPosition = hrp.Position
-	print("Saved position:", savedPosition)
-end)
-
--- Walk to saved position
-walkButton.MouseButton1Click:Connect(function()
-	if not savedPosition then
-		warn("No position saved!")
-		return
+		humanoid.WalkSpeed = 16
 	end
 
-	local character = player.Character or player.CharacterAdded:Wait()
-	local humanoid = character:WaitForChild("Humanoid")
-	local hrp = character:WaitForChild("HumanoidRootPart")
-
-	-- Set speed to 30
-	humanoid.WalkSpeed = autoWalkSpeed
-
-	-- Walk to saved position
-	humanoid:MoveTo(savedPosition)
-
-	-- Detect when destination reached
-	local connection
-	connection = humanoid.MoveToFinished:Connect(function(reached)
-		if reached then
-			print("Arrived at destination!")
-		else
-			warn("Could not reach destination.")
-		end
-
-		-- Reset speed
-		humanoid.WalkSpeed = normalWalkSpeed
-
-		connection:Disconnect()
-	end)
+	moving = false
 end)
