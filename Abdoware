@@ -1,0 +1,169 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local savedPosition = nil
+local normalWalkSpeed = 16
+local autoWalkSpeed = 30
+
+-- Create UI
+local gui = Instance.new("ScreenGui")
+gui.Name = "WalkUI"
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 130)
+frame.Position = UDim2.new(0.5, -110, 0.5, -65)
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "Walk To Position"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextScaled = true
+title.Parent = frame
+
+local setButton = Instance.new("TextButton")
+setButton.Size = UDim2.new(0.8, 0, 0, 35)
+setButton.Position = UDim2.new(0.1, 0, 0.35, 0)
+setButton.Text = "Set Position"
+setButton.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
+setButton.TextColor3 = Color3.new(1,1,1)
+setButton.Parent = frame
+
+local walkButton = Instance.new("TextButton")
+walkButton.Size = UDim2.new(0.8, 0, 0, 35)
+walkButton.Position = UDim2.new(0.1, 0, 0.68, 0)
+walkButton.Text = "Walk To Position"
+walkButton.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+walkButton.TextColor3 = Color3.new(1,1,1)
+walkButton.Parent = frame
+
+-- Save position
+setButton.MouseButton1Click:Connect(function()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local hrp = character:WaitForChild("HumanoidRootPart")
+
+	savedPosition = hrp.Position
+	print("Saved position:", savedPosition)
+end)
+
+-- Walk to saved position
+walkButton.MouseButton1Click:Connect(function()
+	if not savedPosition then
+		warn("No position saved!")
+		return
+	end
+
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoid = character:WaitForChild("Humanoid")
+	local hrp = character:WaitForChild("HumanoidRootPart")
+
+	-- Set speed to 30
+	humanoid.WalkSpeed = autoWalkSpeed
+
+	-- Walk to saved position
+	humanoid:MoveTo(savedPosition)
+
+	-- Detect when destination reached
+	local connection
+	connection = humanoid.MoveToFinished:Connect(function(reached)
+		if reached then
+			print("Arrived at destination!")
+		else
+			warn("Could not reach destination.")
+		end
+
+		-- Reset speed
+		humanoid.WalkSpeed = normalWalkSpeed
+
+		connection:Disconnect()
+	end)
+end)local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local savedPosition = nil
+local normalWalkSpeed = 16
+local autoWalkSpeed = 30
+
+-- Create UI
+local gui = Instance.new("ScreenGui")
+gui.Name = "WalkUI"
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 130)
+frame.Position = UDim2.new(0.5, -110, 0.5, -65)
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "Walk To Position"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextScaled = true
+title.Parent = frame
+
+local setButton = Instance.new("TextButton")
+setButton.Size = UDim2.new(0.8, 0, 0, 35)
+setButton.Position = UDim2.new(0.1, 0, 0.35, 0)
+setButton.Text = "Set Position"
+setButton.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
+setButton.TextColor3 = Color3.new(1,1,1)
+setButton.Parent = frame
+
+local walkButton = Instance.new("TextButton")
+walkButton.Size = UDim2.new(0.8, 0, 0, 35)
+walkButton.Position = UDim2.new(0.1, 0, 0.68, 0)
+walkButton.Text = "Walk To Position"
+walkButton.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+walkButton.TextColor3 = Color3.new(1,1,1)
+walkButton.Parent = frame
+
+-- Save position
+setButton.MouseButton1Click:Connect(function()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local hrp = character:WaitForChild("HumanoidRootPart")
+
+	savedPosition = hrp.Position
+	print("Saved position:", savedPosition)
+end)
+
+-- Walk to saved position
+walkButton.MouseButton1Click:Connect(function()
+	if not savedPosition then
+		warn("No position saved!")
+		return
+	end
+
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoid = character:WaitForChild("Humanoid")
+	local hrp = character:WaitForChild("HumanoidRootPart")
+
+	-- Set speed to 30
+	humanoid.WalkSpeed = autoWalkSpeed
+
+	-- Walk to saved position
+	humanoid:MoveTo(savedPosition)
+
+	-- Detect when destination reached
+	local connection
+	connection = humanoid.MoveToFinished:Connect(function(reached)
+		if reached then
+			print("Arrived at destination!")
+		else
+			warn("Could not reach destination.")
+		end
+
+		-- Reset speed
+		humanoid.WalkSpeed = normalWalkSpeed
+
+		connection:Disconnect()
+	end)
+end)
